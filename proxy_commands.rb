@@ -123,7 +123,15 @@ module CommunityExtensions
     # @since 1.0.0
     module Commands
 
-      @command_ids = Set.new
+      @command_ids ||= Set.new
+
+      # CommunityExtensions::ProxyCommands::Commands.command_ids
+      #
+      # @return [Array]
+      # @since 1.0.0
+      def self.command_ids
+        @command_ids.to_a
+      end
 
       # @param [Symbol] command_id
       #
@@ -152,6 +160,44 @@ module CommunityExtensions
       ##### Edit ###############################################################
 
       # @since 1.0.0
+      def self.undo
+        self.proxy(:undo, 'Undo') {
+          Sketchup.send_action('editUndo:')
+        }
+      end
+      # @since 1.0.0
+      def self.redo
+        self.proxy(:redo, 'Redo') {
+          Sketchup.send_action('editRedo:')
+        }
+      end
+
+      # @since 1.0.0
+      def self.cut
+        self.proxy(:cut, 'Cut') {
+          Sketchup.send_action('cut:')
+        }
+      end
+      # @since 1.0.0
+      def self.copy
+        self.proxy(:copy, 'Copy') {
+          Sketchup.send_action('copy:')
+        }
+      end
+      # @since 1.0.0
+      def self.paste
+        self.proxy(:paste, 'Paste') {
+          Sketchup.send_action('paste:')
+        }
+      end
+      # @since 1.0.0
+      def self.delete
+        self.proxy(:delete, 'Delete') {
+          Sketchup.send_action('editDelete:')
+        }
+      end
+
+      # @since 1.0.0
       def self.select_all
         self.proxy(:select_all, 'Select All') {
           model = Sketchup.active_model
@@ -172,6 +218,53 @@ module CommunityExtensions
         }
       end
 
+      def self.hide
+        self.proxy(:hide, 'Hide') {
+          Sketchup.send_action('editHide:')
+        }
+      end
+      def self.unhide
+        self.proxy(:unhide, 'Unhide Selected') {
+          Sketchup.send_action('editUnhide:')
+        }
+      end
+
+      ##### Draw ###############################################################
+
+      # @since 1.0.0
+      def self.line_tool
+        self.proxy(:line_tool, 'Line') {
+          Sketchup.send_action('selectLineTool:')
+        }
+      end
+      def self.arc_tool
+        self.proxy(:arc_tool, 'Arc') {
+          Sketchup.send_action('selectArcTool:')
+        }
+      end
+      def self.freehand_tool
+        self.proxy(:freehand_tool, 'Freehand') {
+          Sketchup.send_action('selectFreehandTool:')
+        }
+      end
+
+      def self.rectangle_tool
+        self.proxy(:rectangle_tool, 'Rectangle') {
+          Sketchup.send_action('selectRectangleTool:')
+        }
+      end
+      def self.circle_tool
+        self.proxy(:circle_tool, 'Circle') {
+          Sketchup.send_action('selectCircleTool:')
+        }
+      end
+      def self.polygon_tool
+        self.proxy(:polygon_tool, 'Polygon') {
+          Sketchup.send_action('selectPolygonTool:')
+        }
+      end
+
+
       ##### Tools ##############################################################
 
       # @since 1.0.0
@@ -182,10 +275,17 @@ module CommunityExtensions
       end
       # @since 1.0.0
       def self.erase_tool
-        self.proxy(:select_tool, 'Eraser') {
+        self.proxy(:eraser_tool, 'Eraser') {
           Sketchup.send_action('selectEraseTool:')
         }
       end
+      # @since 1.0.0
+      def self.paint_tool
+        self.proxy(:paint_tool, 'Paint Bucket') {
+          Sketchup.send_action('selectPaintTool:')
+        }
+      end
+
       # @since 1.0.0
       def self.move_tool
         self.proxy(:move_tool, 'Move') {
@@ -204,25 +304,124 @@ module CommunityExtensions
           Sketchup.send_action('selectScaleTool:')
         }
       end
+
+      # @since 1.0.0
+      def self.pushpull_tool
+        self.proxy(:pushpull_tool, 'Push/Pull') {
+          Sketchup.send_action('selectPushPullTool:')
+        }
+      end
+      # @since 1.0.0
+      def self.offset_tool
+        self.proxy(:offset_tool, 'Offset') {
+          Sketchup.send_action('selectOffsetTool:')
+        }
+      end
+
+      # @since 1.0.0
+      def self.tapemeasure_tool
+        self.proxy(:tapemeasure_tool, 'Tape Measure') {
+          Sketchup.send_action('selectMeasureTool:')
+        }
+      end
+      # @since 1.0.0
+      def self.protractor_tool
+        self.proxy(:protractor_tool, 'Protractor') {
+          Sketchup.send_action('selectProtractorTool:')
+        }
+      end
+      # @since 1.0.0
+      def self.axes_tool
+        self.proxy(:axes_tool, 'Axes') {
+          Sketchup.send_action('selectAxisTool:')
+        }
+      end
+
+      # @since 1.0.0
+      def self.dimensions_tool
+        self.proxy(:dimensions_tool, 'Dimensions') {
+          Sketchup.send_action('selectDimensionTool:')
+        }
+      end
+      # @since 1.0.0
+      def self.text_tool
+        self.proxy(:text_tool, 'Text') {
+          Sketchup.send_action('selectTextTool:')
+        }
+      end
+      # @since 1.0.0
+      def self.text3d_tool
+        self.proxy(:text3d_tool, '3D Text') {
+          Sketchup.send_action('select3dTextTool:')
+        }
+      end
+
+      # @since 1.0.0
+      def self.sectionplane_tool
+        self.proxy(:sectionplane_tool, 'Section Plane') {
+          Sketchup.send_action('selectSectionPlaneTool:')
+        }
+      end
     end # module Commands
 
 
     # (!) Need a load guard system!
+    #     If a newer file is loaded then it will create a new set of menus.
+    #     A system to prevent duplicates and allow newer versions to add new
+    #     menu items is needed.
     unless file_loaded?( __FILE__ )
       root_menu = UI.menu('Plugins').add_submenu(PLUGIN_NAME)
 
       m = root_menu.add_submenu('Edit')
+      m.add_item(Commands.undo)
+      m.add_item(Commands.redo)
+      m.add_separator
+      m.add_item(Commands.cut)
+      m.add_item(Commands.copy)
+      m.add_item(Commands.paste)
+      # (!) Missing: Paste In Place
+      m.add_item(Commands.delete)
+      m.add_separator
       m.add_item(Commands.select_all)
       m.add_item(Commands.select_none)
       m.add_item(Commands.invert_selection)
+      m.add_separator
+      m.add_item(Commands.hide)
+      # (!) Missing: Unhide Last
+      m.add_item(Commands.unhide)
+      # (!) Missing: Unhide All
+
+      m = root_menu.add_submenu('Draw')
+      m.add_item(Commands.line_tool)
+      m.add_item(Commands.arc_tool)
+      m.add_item(Commands.freehand_tool)
+      m.add_separator
+      m.add_item(Commands.rectangle_tool)
+      m.add_item(Commands.circle_tool)
+      m.add_item(Commands.polygon_tool)
 
       m = root_menu.add_submenu('Tools')
       m.add_item(Commands.select_tool)
       m.add_item(Commands.erase_tool)
+      m.add_item(Commands.paint_tool)
       m.add_separator
       m.add_item(Commands.move_tool)
       m.add_item(Commands.rotate_tool)
       m.add_item(Commands.scale_tool)
+      m.add_separator
+      m.add_item(Commands.pushpull_tool)
+      # (!) Missing: Follow Me
+      m.add_item(Commands.offset_tool)
+      m.add_separator
+      m.add_item(Commands.tapemeasure_tool)
+      m.add_item(Commands.protractor_tool)
+      m.add_item(Commands.axes_tool)
+      m.add_separator
+      m.add_item(Commands.dimensions_tool)
+      m.add_item(Commands.text_tool)
+      m.add_item(Commands.text3d_tool)
+      m.add_separator
+      m.add_item(Commands.sectionplane_tool)
     end
 
   end # module ProxyCommands

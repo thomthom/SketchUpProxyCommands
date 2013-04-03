@@ -63,6 +63,12 @@ first come first serve deal.
 If there is no proxy commands that responds then the native SketchUp behaviour
 will be triggered.
 
+Available Commands
+------------------
+
+To list available commands:
+`CommunityExtensions::ProxyCommands::Commands.command_ids`
+
 Bundling
 --------
 
