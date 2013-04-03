@@ -1,6 +1,16 @@
 SketchUp Proxy Commands
 =======================
 
+***
+
+Module Status: Draft
+--------------------
+
+This module needs review and testing! Please hold distribution until design has
+been proven to work. **Parts are still work in progress!**
+
+***
+
 The purpose of this module is to create an interface where extensions that offer
 alternative modelling toolsets can hook into and use the keyboard shortcuts for
 the native tools.
