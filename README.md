@@ -10,13 +10,13 @@ manipulate vertices in SketchUp. It reproduced many of the native tools such as
 Move, Rotate and Scale to work with vertices. These replacement tools created
 an alternative modelling environment, but a big workflow obstacle was that the
 user could not use the same shortcuts for the native commands for the mirroring
-vertex commands. It was awkward to create all new hotkeys just for the vertex
-tools.
+vertex commands. It was awkward to create all new keyboard shortcuts just for
+the vertex tools.
 
 The solution I made was to develop proxy tools and mapped the shortcuts to these
-commands. If the user hit the hotkey for Move and Vertex Tools was active then
-Vertex Tools' Move tool would be active - otherwise the native Move tool would
-be used. This allowed for seamless worflow integration.
+commands. If the user invoked the keyboard shortcut for Move and Vertex Tools
+was active then Vertex Tools' Move tool would be active - otherwise the nativ
+Move tool would be used. This allowed for seamless worflow integration.
 
 This module is a scalable version where any extension can hook up their
 alternative counterpart to the native SketchUp commands.
@@ -29,15 +29,15 @@ Example
 # is in a state where it can be activated.
 validation = Proc.new { self.is_mode_active? }
 
-pc = CommunityExtensions::ProxyCommands
+proxy = CommunityExtensions::ProxyCommands
 
-pc.register(:move, validation) {
+proxy.register(:move_tool, validation) {
   Sketchup.active_model.select_tool(MyCustomMoveTool.new)
 }
-pc.register(:rotate, validation) {
+proxy.register(:rotate_tool, validation) {
   Sketchup.active_model.select_tool(MyCustomRotateTool.new)
 }
-pc.register(:scale, validation) {
+proxy.register(:scale_tool, validation) {
   Sketchup.active_model.select_tool(MyCustomScaleTool.new)
 }
 ```
