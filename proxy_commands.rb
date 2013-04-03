@@ -9,7 +9,7 @@ require 'sketchup.rb'
 
 # Ensure older versions doesn't overwrite newer versions.
 unless defined?(CommunityExtensions::ProxyCommands) &&
-  CommunityExtensions::ProxyCommands.newer_than?('1.0.0')
+  CommunityExtensions::ProxyCommands.newer_than?('1.0.0') # <- Version of this file
 
 module CommunityExtensions
   # @example
@@ -37,7 +37,9 @@ module CommunityExtensions
     puts "Loading #{self} Version: #{PLUGIN_VERSION}"
 
     # @since 1.0.0
-    ProxyCommand ||= Struct.new(:command, :validation_proc)
+    unless defined?(ProxyCommand)
+      ProxyCommand = Struct.new(:command, :validation_proc)
+    end
 
     @registered ||= {}
 
@@ -76,11 +78,11 @@ module CommunityExtensions
       unless Commands.include?(command_id)
         raise ArgumentError, 'Invalid command ID.'
       end
-      unless proc.is_a?(Proc)
-        raise ArgumentError, "proc is not a valid type (Proc)"
+      unless validation.is_a?(Proc)
+        raise ArgumentError, '`validation` is not a valid Proc type.'
       end
       unless block_given?
-        raise ArgumentError, 'No validation proc given.'
+        raise ArgumentError, "No block given."
       end
       @registered[command_id] ||= []
       if @registered[command_id].include?(proc)
@@ -91,9 +93,36 @@ module CommunityExtensions
       end
     end
 
+    # Debugging method that clears all registered proxy commands.
+    #
+    # @return [Nil]
+    # @since 1.0.0
+    def self.clear!
+      @registered.clear
+      nil
+    end
+
+    # Internal method responsible for triggering the registered commands.
+    #
+    # @param [Symbol] command_id
+    #
+    # @return [Boolean]
+    # @since 1.0.0
+    def self.trigger(command_id)
+      return false unless @registered[command_id]
+      for command in @registered[command_id]
+        if command.validation_proc.call
+          command.command.call
+          return true
+        end
+      end
+      false
+    end
+
 
     # @since 1.0.0
     module Commands
+
       @command_ids = Set.new
 
       # @param [Symbol] command_id
@@ -178,6 +207,7 @@ module CommunityExtensions
     end # module Commands
 
 
+    # (!) Need a load guard system!
     unless file_loaded?( __FILE__ )
       root_menu = UI.menu('Plugins').add_submenu(PLUGIN_NAME)
 
