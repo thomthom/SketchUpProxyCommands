@@ -37,9 +37,9 @@ module CommunityExtensions
     puts "Loading #{self} Version: #{PLUGIN_VERSION}"
 
     # @since 1.0.0
-    ProxyCommand = Struct.new(:command, :validation_proc)
+    ProxyCommand ||= Struct.new(:command, :validation_proc)
 
-    @registered = {}
+    @registered ||= {}
 
     # Used by a load guard to ensure that older versions does not overwrite a
     # newer one. Part of this ProxyCommand API design is that newer versions
