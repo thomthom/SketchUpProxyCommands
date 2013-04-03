@@ -3,11 +3,13 @@ SketchUp Proxy Commands
 
 ***
 
-Module Status: Draft
---------------------
+Module Status: Draft (Work in Progress!)
+----------------------------------------
 
 This module needs review and testing! Please hold distribution until design has
-been proven to work. **Parts are still work in progress!**
+been proven to work. But do share your thoughts.
+
+**Do not redistribute!**
 
 ***
 
