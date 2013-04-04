@@ -312,6 +312,12 @@ module CommunityExtensions
         }
       end
       # @since 1.0.0
+      def self.followme_tool
+        self.proxy(:followme_tool, 'Follow Me') {
+          Sketchup.send_action('selectExtrudeTool:')
+        }
+      end
+      # @since 1.0.0
       def self.offset_tool
         self.proxy(:offset_tool, 'Offset') {
           Sketchup.send_action('selectOffsetTool:')
@@ -410,7 +416,7 @@ module CommunityExtensions
       m.add_item(Commands.scale_tool)
       m.add_separator
       m.add_item(Commands.pushpull_tool)
-      # (!) Missing: Follow Me
+      m.add_item(Commands.followme_tool)
       m.add_item(Commands.offset_tool)
       m.add_separator
       m.add_item(Commands.tapemeasure_tool)
