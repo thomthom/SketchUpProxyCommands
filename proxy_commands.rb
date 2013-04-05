@@ -371,64 +371,175 @@ module CommunityExtensions
     end # module Commands
 
 
+    # Internal method ensuring duplicate top level menus are nor created.
+    #
+    # @param [Sketchup::Menu] menu
+    #
+    # @return [Boolean]
+    # @since 1.0.0
+    def self.get_top_menu(name)
+      # Ensure there is only one tool menu.
+      @root_menu ||= UI.menu('Plugins').add_submenu(PLUGIN_NAME)
+      # Ensure there is only one menu per top level.
+      @top_menus ||= {}
+      @top_menus[name] ||= @root_menu.add_submenu(name)
+      # Reset the internal list of last menu items. This indicate a new version
+      # is being loaded.
+      menu = @top_menus[name]
+      @last_menu ||= {}
+      @last_menu[menu] = []
+      menu
+    end
+
+    # Internal method ensuring duplicate menu items are not created.
+    #
+    # @param [Sketchup::Menu] parent_menu
+    # @param [Symbol] command_id
+    #
+    # @return [Boolean]
+    # @since 1.0.0
+    def self.add_menu(parent_menu, command_id)
+      puts "add_menu(#{parent_menu}, #{command_id})"
+      #TT.debug "add_menu(#{parent_menu}, #{command_id})"
+      @menus ||= {}
+      @menus[parent_menu] ||= []
+      @last_menu ||= {}
+      if @menus[parent_menu].include?(command_id)
+        @last_menu[parent_menu] << command_id
+        return false
+      end
+      #return false if @menus[parent_menu].include?(command_id)
+      #return false if Commands.include?(command_id)
+      puts "> Adding..."
+      index = self.get_menu_index(parent_menu, command_id)
+      puts "> Index: #{index}"
+      #TT.debug "> Index: #{index}"
+      p parent_menu.add_item(Commands.send(command_id), index)
+      @menus[parent_menu].insert(index, command_id)
+      @last_menu[parent_menu] << command_id
+      true
+    end
+
+    # Internal method ensuring duplicate menu separators are not created.
+    #
+    # @param [Sketchup::Menu] parent_menu
+    # @param [Symbol] command_id
+    #
+    # @return [Boolean]
+    # @since 1.0.0
+    def self.add_separator(parent_menu)
+      puts "add_separator(#{parent_menu})"
+      @menus ||= {}
+      @menus[parent_menu] ||= []
+      @last_menu ||= {}
+      previous_menu = @last_menu[parent_menu].last
+      if @menus[parent_menu].last == :separator
+        @last_menu[parent_menu] << :separator
+        return false 
+      end
+      puts '> Previous Menu Index:'
+      p @menus[parent_menu].index(previous_menu)
+      p @menus[parent_menu].length
+      previous_index = @menus[parent_menu].index(previous_menu)
+      previous_max_index = @menus[parent_menu].length - 1
+      unless previous_index == previous_max_index
+        puts '> Previous Menu was inserted.'
+        @last_menu[parent_menu] << :separator
+        return false
+      end
+      puts "> Adding..."
+      # (!) Prevent separator from being created if last inserted menu is at the
+      #     end of the menu list. Currently it is impossible to control the
+      #     insert index of separators.
+      parent_menu.add_separator
+      @menus[parent_menu] << :separator
+      @last_menu[parent_menu] << :separator
+      true
+    end
+
+    # load 'proxy_commands.rb.x'
+    def self.get_menu_index(parent_menu, command_id)
+      puts "get_menu_index(#{parent_menu}, #{command_id})"
+      menu_list = @menus[parent_menu]
+      p menu_list
+      previous_menu = @last_menu[parent_menu].last
+      puts "> Previous menu: #{previous_menu.inspect}"
+      previous_was_separator = previous_menu == :separator
+      if previous_was_separator
+        puts '> Last was separator - find the menu:'
+        previous_menu = @last_menu[parent_menu][-2]
+        puts "> Previous menu: #{previous_menu.inspect}"
+      end
+      previous_index = menu_list.index(previous_menu)
+      puts "> Previous index: #{previous_index.inspect}"
+      if previous_index
+        previous_index += 1
+        previous_index += 1 if previous_was_separator
+        puts "> Returning index: #{previous_index.inspect}"
+        previous_index
+      else
+        puts "> Returning index: #{previous_index.inspect}"
+        @menus[parent_menu].length
+      end
+    end
+
+
     # (!) Need a load guard system!
     #     If a newer file is loaded then it will create a new set of menus.
     #     A system to prevent duplicates and allow newer versions to add new
     #     menu items is needed.
-    unless file_loaded?( __FILE__ )
-      root_menu = UI.menu('Plugins').add_submenu(PLUGIN_NAME)
-
-      m = root_menu.add_submenu('Edit')
-      m.add_item(Commands.undo)
-      m.add_item(Commands.redo)
-      m.add_separator
-      m.add_item(Commands.cut)
-      m.add_item(Commands.copy)
-      m.add_item(Commands.paste)
+    #unless file_loaded?( __FILE__ )
+      m = self.get_top_menu('Edit')
+      self.add_menu(m, :undo)
+      self.add_menu(m, :redo)
+      self.add_separator(m)
+      self.add_menu(m, :cut)
+      self.add_menu(m, :copy) if file_loaded?( __FILE__ )
+      self.add_menu(m, :paste)
       # (!) Missing: Paste In Place
-      m.add_item(Commands.delete)
-      m.add_separator
-      m.add_item(Commands.select_all)
-      m.add_item(Commands.select_none)
-      m.add_item(Commands.invert_selection)
-      m.add_separator
-      m.add_item(Commands.hide)
+      self.add_menu(m, :delete)
+      self.add_separator(m)
+      self.add_menu(m, :select_all) if file_loaded?( __FILE__ )
+      self.add_menu(m, :select_none) if file_loaded?( __FILE__ )
+      self.add_menu(m, :invert_selection)
+      self.add_separator(m)
+      self.add_menu(m, :hide)
       # (!) Missing: Unhide Last
-      m.add_item(Commands.unhide)
+      self.add_menu(m, :unhide)
       # (!) Missing: Unhide All
 
-      m = root_menu.add_submenu('Draw')
-      m.add_item(Commands.line_tool)
-      m.add_item(Commands.arc_tool)
-      m.add_item(Commands.freehand_tool)
-      m.add_separator
-      m.add_item(Commands.rectangle_tool)
-      m.add_item(Commands.circle_tool)
-      m.add_item(Commands.polygon_tool)
+      m = self.get_top_menu('Draw')
+      self.add_menu(m, :line_tool)
+      self.add_menu(m, :arc_tool)
+      self.add_menu(m, :freehand_tool)
+      self.add_separator(m)
+      self.add_menu(m, :rectangle_tool)
+      self.add_menu(m, :circle_tool)
+      self.add_menu(m, :polygon_tool)
 
-      m = root_menu.add_submenu('Tools')
-      m.add_item(Commands.select_tool)
-      m.add_item(Commands.erase_tool)
-      m.add_item(Commands.paint_tool)
-      m.add_separator
-      m.add_item(Commands.move_tool)
-      m.add_item(Commands.rotate_tool)
-      m.add_item(Commands.scale_tool)
-      m.add_separator
-      m.add_item(Commands.pushpull_tool)
-      m.add_item(Commands.followme_tool)
-      m.add_item(Commands.offset_tool)
-      m.add_separator
-      m.add_item(Commands.tapemeasure_tool)
-      m.add_item(Commands.protractor_tool)
-      m.add_item(Commands.axes_tool)
-      m.add_separator
-      m.add_item(Commands.dimensions_tool)
-      m.add_item(Commands.text_tool)
-      m.add_item(Commands.text3d_tool)
-      m.add_separator
-      m.add_item(Commands.sectionplane_tool)
-    end
+      m = self.get_top_menu('Tools')
+      self.add_menu(m, :select_tool)
+      self.add_menu(m, :erase_tool)
+      self.add_menu(m, :paint_tool)
+      self.add_separator(m)
+      self.add_menu(m, :move_tool)
+      self.add_menu(m, :rotate_tool)
+      self.add_menu(m, :scale_tool)
+      self.add_separator(m)
+      self.add_menu(m, :pushpull_tool)
+      self.add_menu(m, :followme_tool)
+      self.add_menu(m, :offset_tool)
+      self.add_separator(m)
+      self.add_menu(m, :tapemeasure_tool)
+      self.add_menu(m, :protractor_tool)
+      self.add_menu(m, :axes_tool)
+      self.add_separator(m)
+      self.add_menu(m, :dimensions_tool)
+      self.add_menu(m, :text_tool)
+      self.add_menu(m, :text3d_tool)
+      self.add_separator(m)
+      self.add_menu(m, :sectionplane_tool)
+    #end
 
   end # module ProxyCommands
 end # module CommunityExtensions
@@ -437,6 +548,13 @@ end # Version Check
 
 #-------------------------------------------------------------------------------
 
-file_loaded( __FILE__ )
+#file_loaded( __FILE__ )
 
 #-------------------------------------------------------------------------------
+
+puts '======================================'
+
+unless file_loaded?( __FILE__ )
+  file_loaded( __FILE__ )
+  load __FILE__
+end
