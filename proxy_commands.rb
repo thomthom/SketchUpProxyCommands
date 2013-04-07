@@ -399,8 +399,6 @@ module CommunityExtensions
     # @return [Boolean]
     # @since 1.0.0
     def self.add_menu(parent_menu, command_id)
-      puts "add_menu(#{parent_menu}, #{command_id})"
-      #TT.debug "add_menu(#{parent_menu}, #{command_id})"
       @menus ||= {}
       @menus[parent_menu] ||= []
       @last_menu ||= {}
@@ -408,13 +406,11 @@ module CommunityExtensions
         @last_menu[parent_menu] << command_id
         return false
       end
-      #return false if @menus[parent_menu].include?(command_id)
-      #return false if Commands.include?(command_id)
-      puts "> Adding..."
-      index = self.get_menu_index(parent_menu, command_id)
-      puts "> Index: #{index}"
-      #TT.debug "> Index: #{index}"
-      p parent_menu.add_item(Commands.send(command_id), index)
+      if Sketchup::Menu.instance_method(:add_item).arity == 1
+        index = self.get_menu_index(parent_menu)
+      else
+        index = self.get_menu_index(parent_menu, command_id)
+      end
       @menus[parent_menu].insert(index, command_id)
       @last_menu[parent_menu] << command_id
       true
@@ -428,7 +424,6 @@ module CommunityExtensions
     # @return [Boolean]
     # @since 1.0.0
     def self.add_separator(parent_menu)
-      puts "add_separator(#{parent_menu})"
       @menus ||= {}
       @menus[parent_menu] ||= []
       @last_menu ||= {}
@@ -437,48 +432,38 @@ module CommunityExtensions
         @last_menu[parent_menu] << :separator
         return false 
       end
-      puts '> Previous Menu Index:'
-      p @menus[parent_menu].index(previous_menu)
-      p @menus[parent_menu].length
       previous_index = @menus[parent_menu].index(previous_menu)
       previous_max_index = @menus[parent_menu].length - 1
       unless previous_index == previous_max_index
-        puts '> Previous Menu was inserted.'
         @last_menu[parent_menu] << :separator
         return false
       end
-      puts "> Adding..."
-      # (!) Prevent separator from being created if last inserted menu is at the
-      #     end of the menu list. Currently it is impossible to control the
-      #     insert index of separators.
       parent_menu.add_separator
       @menus[parent_menu] << :separator
       @last_menu[parent_menu] << :separator
       true
     end
 
-    # load 'proxy_commands.rb.x'
+    # Internal method working out the correct insertion id for the menu item.
+    #
+    # @param [Sketchup::Menu] parent_menu
+    # @param [Symbol] command_id
+    #
+    # @return [Integer]
+    # @since 1.0.0
     def self.get_menu_index(parent_menu, command_id)
-      puts "get_menu_index(#{parent_menu}, #{command_id})"
       menu_list = @menus[parent_menu]
-      p menu_list
       previous_menu = @last_menu[parent_menu].last
-      puts "> Previous menu: #{previous_menu.inspect}"
       previous_was_separator = previous_menu == :separator
       if previous_was_separator
-        puts '> Last was separator - find the menu:'
         previous_menu = @last_menu[parent_menu][-2]
-        puts "> Previous menu: #{previous_menu.inspect}"
       end
       previous_index = menu_list.index(previous_menu)
-      puts "> Previous index: #{previous_index.inspect}"
       if previous_index
         previous_index += 1
         previous_index += 1 if previous_was_separator
-        puts "> Returning index: #{previous_index.inspect}"
         previous_index
       else
-        puts "> Returning index: #{previous_index.inspect}"
         @menus[parent_menu].length
       end
     end
@@ -494,13 +479,13 @@ module CommunityExtensions
       self.add_menu(m, :redo)
       self.add_separator(m)
       self.add_menu(m, :cut)
-      self.add_menu(m, :copy) if file_loaded?( __FILE__ )
+      self.add_menu(m, :copy)
       self.add_menu(m, :paste)
       # (!) Missing: Paste In Place
       self.add_menu(m, :delete)
       self.add_separator(m)
-      self.add_menu(m, :select_all) if file_loaded?( __FILE__ )
-      self.add_menu(m, :select_none) if file_loaded?( __FILE__ )
+      self.add_menu(m, :select_all)
+      self.add_menu(m, :select_none)
       self.add_menu(m, :invert_selection)
       self.add_separator(m)
       self.add_menu(m, :hide)
@@ -548,13 +533,6 @@ end # Version Check
 
 #-------------------------------------------------------------------------------
 
-#file_loaded( __FILE__ )
+file_loaded( __FILE__ )
 
 #-------------------------------------------------------------------------------
-
-puts '======================================'
-
-unless file_loaded?( __FILE__ )
-  file_loaded( __FILE__ )
-  load __FILE__
-end
