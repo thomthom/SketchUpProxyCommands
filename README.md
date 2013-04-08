@@ -75,6 +75,9 @@ first come first serve deal.
 If there is no proxy commands that responds then the native SketchUp behaviour
 will be triggered.
 
+**It is important that the namespace is preserved and not modified. Doing so
+will result in multiple menu items.**
+
 Available Commands
 ------------------
 

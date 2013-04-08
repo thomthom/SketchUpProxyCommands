@@ -371,160 +371,240 @@ module CommunityExtensions
     end # module Commands
 
 
-    # Internal method ensuring duplicate top level menus are nor created.
+    # Menu manager ensuring that multiple menus is not created. It also makes
+    # an effort to maintain menu ordering in case a newer version should be
+    # loaded alongside an older version.
     #
-    # @param [Sketchup::Menu] menu
+    # If an old version is loaded after a new version then the old version will
+    # not be doing anything. This is because new versions should be 100%
+    # backwards compatible.
     #
-    # @return [Boolean]
+    # If a newer version is loaded after an old version is loaded it will
+    # attempt to insert new menu items in the correct order - provided the 
+    # SketchUp version it's being run on supports inserting menus at a given
+    # index.
+    #
+    # Example:
+    # One extensions loads a version 1.0 of the module.
+    #   Version 1.0 loads the following menus:
+    #   * :undo
+    #   * :redo
+    #   * :separator
+    #   * :copy
+    #   * :past
+    #
+    # Another extension loads version 1.2 of the module, it adds a new menu item
+    # to the list.
+    #   * :undo
+    #   * :redo
+    #   * :separator
+    #   * :cut
+    #   * :copy
+    #   * :past
+    #
+    # If SketchUp doesn't support menus to be inserted at a given index the menu
+    # list built will look like this:
+    #   * :undo
+    #   * :redo
+    #   * :separator
+    #   * :copy
+    #   * :past
+    #   * :cut
+    #
+    # But if SketchUp supports inserting at a given index then the new menu itme
+    # will be inserted where it's intended:
+    #   * :undo
+    #   * :redo
+    #   * :separator
+    #   * :cut
+    #   * :copy
+    #   * :past
+    #
     # @since 1.0.0
-    def self.get_top_menu(name)
-      # Ensure there is only one tool menu.
+    module Menus
+
+      # Root level menu where the menu tree is added.
       @root_menu ||= UI.menu('Plugins').add_submenu(PLUGIN_NAME)
-      # Ensure there is only one menu per top level.
+      # Handles to top level sub-menus (Like Edit, Draw and Tools.)
       @top_menus ||= {}
-      @top_menus[name] ||= @root_menu.add_submenu(name)
-      # Reset the internal list of last menu items. This indicate a new version
-      # is being loaded.
-      menu = @top_menus[name]
-      @last_menu ||= {}
-      @last_menu[menu] = []
-      menu
-    end
-
-    # Internal method ensuring duplicate menu items are not created.
-    #
-    # @param [Sketchup::Menu] parent_menu
-    # @param [Symbol] command_id
-    #
-    # @return [Boolean]
-    # @since 1.0.0
-    def self.add_menu(parent_menu, command_id)
+      # List of existing menus built.
       @menus ||= {}
-      @menus[parent_menu] ||= []
+      # List of menu structure being built by this file.
       @last_menu ||= {}
-      if @menus[parent_menu].include?(command_id)
-        @last_menu[parent_menu] << command_id
-        return false
+
+      # Internal method ensuring duplicate top level menus are nor created.
+      #
+      # @param [Sketchup::Menu] menu
+      #
+      # @return [Boolean]
+      # @since 1.0.0
+      def self.get_top_menu(name)
+        # Ensure there is only one menu per top level.
+        @top_menus[name] ||= @root_menu.add_submenu(name)
+        menu = @top_menus[name]
+        # Reset the internal list of last menu items. This indicate a new
+        # file is being loaded and the list will be used by that file.
+        #
+        # @last_menu is a list that is filled for the currently running file.
+        #   It keeps track of the intended order of menus and use it to compare
+        #   against the list of existing menus (@menus).
+        @last_menu[menu] = []
+        menu
       end
-      if Sketchup::Menu.instance_method(:add_item).arity == 1
-        index = self.get_menu_index(parent_menu)
-      else
+
+      # Internal method ensuring duplicate menu items are not created.
+      #
+      # @param [Sketchup::Menu] parent_menu
+      # @param [Symbol] command_id Must correspond to a method under Commands.
+      #
+      # @return [Boolean]
+      # @since 1.0.0
+      def self.add_menu(parent_menu, command_id)
+        unless Commands.respond_to?(command_id)
+          raise ArgumentError, 'Invalid Command ID.'
+        end
+        # If the menu has already been added then don't add it again. But it
+        # still needs to be added to the list (@last_menu) of commends processed
+        # for this current file so the remaining menus can be inserted
+        # correctly.
+        @menus[parent_menu] ||= []
+        if @menus[parent_menu].include?(command_id)
+          @last_menu[parent_menu] << command_id
+          return false
+        end
+        # Attempt to insert the menu items in the correct order if SketchUp
+        # supports it.
         index = self.get_menu_index(parent_menu, command_id)
+        if Sketchup::Menu.instance_method(:add_item).arity == 1
+          parent_menu.add_item(Commands.send(command_id))
+        else
+          parent_menu.add_item(Commands.send(command_id), index)
+        end
+        # Menu is either inserted or appened at the end and the new menu item
+        # is added to the list of current menus (@last_menu).
+        @menus[parent_menu].insert(index, command_id)
+        @last_menu[parent_menu] << command_id
+        true
       end
-      @menus[parent_menu].insert(index, command_id)
-      @last_menu[parent_menu] << command_id
-      true
-    end
 
-    # Internal method ensuring duplicate menu separators are not created.
-    #
-    # @param [Sketchup::Menu] parent_menu
-    # @param [Symbol] command_id
-    #
-    # @return [Boolean]
-    # @since 1.0.0
-    def self.add_separator(parent_menu)
-      @menus ||= {}
-      @menus[parent_menu] ||= []
-      @last_menu ||= {}
-      previous_menu = @last_menu[parent_menu].last
-      if @menus[parent_menu].last == :separator
+      # Internal method ensuring duplicate menu separators are not created.
+      #
+      # @param [Sketchup::Menu] parent_menu
+      # @param [Symbol] command_id
+      #
+      # @return [Boolean]
+      # @since 1.0.0
+      def self.add_separator(parent_menu)
+        @menus[parent_menu] ||= []
+        # Ensure two menu separators isn't added right after each other.
+        previous_menu = @last_menu[parent_menu].last
+        if @menus[parent_menu].last == :separator
+          @last_menu[parent_menu] << :separator
+          return false 
+        end
+        # If the previous menu added was inserted and not appended at the end
+        # then the separator isn't added either, because currently there is no
+        # way to insert separators at a given index.
+        previous_index = @menus[parent_menu].index(previous_menu)
+        previous_max_index = @menus[parent_menu].length - 1
+        unless previous_index == previous_max_index
+          @last_menu[parent_menu] << :separator
+          return false
+        end
+        # At this point we've ensured the separator can be added to the end of
+        # the menu.
+        parent_menu.add_separator
+        @menus[parent_menu] << :separator
         @last_menu[parent_menu] << :separator
-        return false 
+        true
       end
-      previous_index = @menus[parent_menu].index(previous_menu)
-      previous_max_index = @menus[parent_menu].length - 1
-      unless previous_index == previous_max_index
-        @last_menu[parent_menu] << :separator
-        return false
-      end
-      parent_menu.add_separator
-      @menus[parent_menu] << :separator
-      @last_menu[parent_menu] << :separator
-      true
-    end
 
-    # Internal method working out the correct insertion id for the menu item.
-    #
-    # @param [Sketchup::Menu] parent_menu
-    # @param [Symbol] command_id
-    #
-    # @return [Integer]
-    # @since 1.0.0
-    def self.get_menu_index(parent_menu, command_id)
-      menu_list = @menus[parent_menu]
-      previous_menu = @last_menu[parent_menu].last
-      previous_was_separator = previous_menu == :separator
-      if previous_was_separator
-        previous_menu = @last_menu[parent_menu][-2]
+      # Internal method working out the correct insertion id for the menu item.
+      #
+      # @param [Sketchup::Menu] parent_menu
+      # @param [Symbol] command_id
+      #
+      # @return [Integer]
+      # @since 1.0.0
+      def self.get_menu_index(parent_menu, command_id)
+        previous_menu = @last_menu[parent_menu].last
+        # Since separators cannot be identified from each other they need to be
+        # treated with some extra care. When they are encountered the menu item
+        # prior to the separator needs to be looked up in order to determine the
+        # correct insertion order.
+        previous_was_separator = previous_menu == :separator
+        if previous_was_separator
+          previous_menu = @last_menu[parent_menu][-2]
+        end
+        # Featch the index of the previous menu and increment accorcingly while
+        # accounting for menu separators.
+        previous_index = @menus[parent_menu].index(previous_menu)
+        if previous_index
+          # Insert into existing list.
+          previous_index += 1
+          previous_index += 1 if previous_was_separator
+          previous_index
+        else
+          # Append to end.
+          @menus[parent_menu].length
+        end
       end
-      previous_index = menu_list.index(previous_menu)
-      if previous_index
-        previous_index += 1
-        previous_index += 1 if previous_was_separator
-        previous_index
-      else
-        @menus[parent_menu].length
-      end
-    end
+
+    end # module Menus
 
 
-    # (!) Need a load guard system!
-    #     If a newer file is loaded then it will create a new set of menus.
-    #     A system to prevent duplicates and allow newer versions to add new
-    #     menu items is needed.
-    #unless file_loaded?( __FILE__ )
-      m = self.get_top_menu('Edit')
-      self.add_menu(m, :undo)
-      self.add_menu(m, :redo)
-      self.add_separator(m)
-      self.add_menu(m, :cut)
-      self.add_menu(m, :copy)
-      self.add_menu(m, :paste)
+    unless file_loaded?( __FILE__ )
+      m = Menus.get_top_menu('Edit')
+      Menus.add_menu(m, :undo)
+      Menus.add_menu(m, :redo)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :cut)
+      Menus.add_menu(m, :copy)
+      Menus.add_menu(m, :paste)
       # (!) Missing: Paste In Place
-      self.add_menu(m, :delete)
-      self.add_separator(m)
-      self.add_menu(m, :select_all)
-      self.add_menu(m, :select_none)
-      self.add_menu(m, :invert_selection)
-      self.add_separator(m)
-      self.add_menu(m, :hide)
+      Menus.add_menu(m, :delete)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :select_all)
+      Menus.add_menu(m, :select_none)
+      Menus.add_menu(m, :invert_selection)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :hide)
       # (!) Missing: Unhide Last
-      self.add_menu(m, :unhide)
+      Menus.add_menu(m, :unhide)
       # (!) Missing: Unhide All
 
-      m = self.get_top_menu('Draw')
-      self.add_menu(m, :line_tool)
-      self.add_menu(m, :arc_tool)
-      self.add_menu(m, :freehand_tool)
-      self.add_separator(m)
-      self.add_menu(m, :rectangle_tool)
-      self.add_menu(m, :circle_tool)
-      self.add_menu(m, :polygon_tool)
+      m = Menus.get_top_menu('Draw')
+      Menus.add_menu(m, :line_tool)
+      Menus.add_menu(m, :arc_tool)
+      Menus.add_menu(m, :freehand_tool)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :rectangle_tool)
+      Menus.add_menu(m, :circle_tool)
+      Menus.add_menu(m, :polygon_tool)
 
-      m = self.get_top_menu('Tools')
-      self.add_menu(m, :select_tool)
-      self.add_menu(m, :erase_tool)
-      self.add_menu(m, :paint_tool)
-      self.add_separator(m)
-      self.add_menu(m, :move_tool)
-      self.add_menu(m, :rotate_tool)
-      self.add_menu(m, :scale_tool)
-      self.add_separator(m)
-      self.add_menu(m, :pushpull_tool)
-      self.add_menu(m, :followme_tool)
-      self.add_menu(m, :offset_tool)
-      self.add_separator(m)
-      self.add_menu(m, :tapemeasure_tool)
-      self.add_menu(m, :protractor_tool)
-      self.add_menu(m, :axes_tool)
-      self.add_separator(m)
-      self.add_menu(m, :dimensions_tool)
-      self.add_menu(m, :text_tool)
-      self.add_menu(m, :text3d_tool)
-      self.add_separator(m)
-      self.add_menu(m, :sectionplane_tool)
-    #end
+      m = Menus.get_top_menu('Tools')
+      Menus.add_menu(m, :select_tool)
+      Menus.add_menu(m, :erase_tool)
+      Menus.add_menu(m, :paint_tool)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :move_tool)
+      Menus.add_menu(m, :rotate_tool)
+      Menus.add_menu(m, :scale_tool)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :pushpull_tool)
+      Menus.add_menu(m, :followme_tool)
+      Menus.add_menu(m, :offset_tool)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :tapemeasure_tool)
+      Menus.add_menu(m, :protractor_tool)
+      Menus.add_menu(m, :axes_tool)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :dimensions_tool)
+      Menus.add_menu(m, :text_tool)
+      Menus.add_menu(m, :text3d_tool)
+      Menus.add_separator(m)
+      Menus.add_menu(m, :sectionplane_tool)
+    end
 
   end # module ProxyCommands
 end # module CommunityExtensions
