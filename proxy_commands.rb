@@ -68,7 +68,7 @@ module CommunityExtensions
       end
       false
     end
-  
+
     # @param [Symbol] command_id
     # @param [Proc] proc
     #
@@ -384,7 +384,7 @@ module CommunityExtensions
     # backwards compatible.
     #
     # If a newer version is loaded after an old version is loaded it will
-    # attempt to insert new menu items in the correct order - provided the 
+    # attempt to insert new menu items in the correct order - provided the
     # SketchUp version it's being run on supports inserting menus at a given
     # index.
     #
@@ -504,7 +504,7 @@ module CommunityExtensions
         previous_menu = @last_menu[parent_menu].last
         if @menus[parent_menu].last == :separator
           @last_menu[parent_menu] << :separator
-          return false 
+          return false
         end
         # If the previous menu added was inserted and not appended at the end
         # then the separator isn't added either, because currently there is no
