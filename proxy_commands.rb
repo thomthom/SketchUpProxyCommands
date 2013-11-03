@@ -123,6 +123,10 @@ module CommunityExtensions
     # @since 1.0.0
     module Commands
 
+      if defined?(Sketchup::Set)
+        Set = Sketchup::Set
+      end
+
       @command_ids ||= Set.new
 
       # CommunityExtensions::ProxyCommands::Commands.command_ids
